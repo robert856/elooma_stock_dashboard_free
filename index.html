@@ -148,11 +148,43 @@ async function fetchFinnhub(symbol) {
   const q = await qRes.json();
   if (q.c === 0 && q.h === 0) throw new Error('Symbol not found');
 
-  // Basic financials for 52W high/low
-  const mUrl = `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(symbol)}&metric=all&token=${key}`;
-  const mRes = await fetch(mUrl);
-  const m = await mRes.json();
-  const metrics = m?.metric || {};
+  // 52W high/low from Finnhub quote (h/l are today's range, use 52wk from profile)
+  // Revenue + PE from Yahoo Finance v7 via corsproxy (free, no key)
+  let revTotal = null, pe = null, high52 = null, low52 = null;
+  try {
+    const yUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`;
+    const yProxy = `https://corsproxy.io/?${encodeURIComponent(yUrl)}`;
+    const yRes = await fetch(yProxy);
+    if (yRes.ok) {
+      const yData = await yRes.json();
+      const meta = yData?.chart?.result?.[0]?.meta || {};
+      high52 = meta.fiftyTwoWeekHigh || null;
+      low52  = meta.fiftyTwoWeekLow  || null;
+    }
+  } catch(e) {}
+
+  // Finnhub basic financials — works on free tier for 52wk + some metrics
+  try {
+    const mUrl = `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(symbol)}&metric=all&token=${key}`;
+    const mRes = await fetch(mUrl);
+    const m = await mRes.json();
+    const metrics = m?.metric || {};
+    if (!high52) high52 = metrics['52WeekHigh'] || null;
+    if (!low52)  low52  = metrics['52WeekLow']  || null;
+    revTotal = metrics['revenueTTM'] || null;
+    pe       = metrics['peBasicExclExtraTTM'] || metrics['peNormalizedAnnual'] || null;
+  } catch(e) {}
+
+  // Fallback: Alpha Vantage free overview for revenue + PE (no key needed for overview)
+  if (!revTotal || !pe) {
+    try {
+      const avUrl = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${encodeURIComponent(symbol)}&apikey=demo`;
+      const avRes = await fetch(avUrl);
+      const av = await avRes.json();
+      if (!revTotal && av.RevenueTTM) revTotal = parseFloat(av.RevenueTTM) || null;
+      if (!pe && av.PERatio && av.PERatio !== 'None') pe = parseFloat(av.PERatio) || null;
+    } catch(e) {}
+  }
 
   return {
     price:     q.c,
@@ -162,11 +194,10 @@ async function fetchFinnhub(symbol) {
     low:       q.l,
     open:      q.o,
     prevClose: q.pc,
-    high52:    metrics['52WeekHigh'] || null,
-    low52:     metrics['52WeekLow']  || null,
-    revenue:   metrics['revenuePerShareTTM'] || null,
-    revTotal:  metrics['revenueTTM'] || null,
-    pe:        metrics['peBasicExclExtraTTM'] || metrics['peNormalizedAnnual'] || null,
+    high52,
+    low52,
+    revTotal,
+    pe,
   };
 }
 
