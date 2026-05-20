@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Dashboard — Elooma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --surface2: #181c23;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --dim: #374151;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --accent: #00d9a3;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 40px 24px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .header-left { display: flex; align-items: baseline; gap: 14px; }
+
+  .brand {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+
+  .brand-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .created-by {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .created-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .free-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 0.5px solid var(--accent);
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-left: 10px;
+    opacity: 0.7;
+    vertical-align: middle;
+  }
+
+  .table-wrap { width: 100%; overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+    min-width: 760px;
+  }
+
+  thead tr { border-bottom: 0.5px solid var(--border2); }
+
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  th.drag-th { width: 28px; padding: 10px 6px 10px 14px; }
+
+  tbody tr {
+    border-bottom: 0.5px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: var(--surface); }
+  tbody tr.sortable-chosen { background: var(--surface2) !important; opacity: 0.95; }
+  tbody tr.sortable-ghost { opacity: 0.3; }
+
+  td { padding: 0; vertical-align: middle; }
+
+  .drag-cell {
+    padding: 12px 6px 12px 14px;
+    cursor: grab;
+    color: var(--dim);
+    user-select: none;
+    touch-action: none;
+  }
+  .drag-cell:active { cursor: grabbing; }
+  .drag-icon { display: flex; flex-direction: column; gap: 3px; width: 14px; }
+  .drag-icon span { display: block; height: 1.5px; background: currentColor; border-radius: 1px; }
+  tr:hover .drag-cell { color: var(--muted); }
+
+  .symbol-cell {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .symbol-wrap { display: flex; flex-direction: column; gap: 2px; }
+
+  .symbol-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    width: 80px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .symbol-input::placeholder { color: var(--dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .symbol-input:focus { color: var(--accent); }
+
+  .fetch-hint {
+    font-size: 9px;
+    color: var(--dim);
+    font-family: var(--mono);
+    opacity: 0;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  .symbol-input:focus + .fetch-hint { opacity: 1; }
+
+  .company-name {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .data-cell {
+    padding: 12px 14px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .data-cell.price { font-size: 14px; font-weight: 600; }
+  .data-cell.empty { color: var(--dim); }
+  .change-up { color: var(--green); }
+  .change-down { color: var(--red); }
+
+  .mkt-status {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .status-open { background: rgba(34,197,94,0.15); color: var(--green); }
+  .status-closed { background: rgba(107,114,128,0.15); color: var(--muted); }
+  .status-pre { background: rgba(245,158,11,0.15); color: var(--amber); }
+
+  .skeleton {
+    height: 13px; width: 58px;
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--surface) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); display: inline-block;
+    animation: blink 2s infinite; margin-right: 5px; vertical-align: middle;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .error-cell { color: var(--red); font-size: 11px; }
+
+  .footer {
+    margin-top: 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .refresh-all-btn {
+    background: none;
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .refresh-all-btn:hover { background: rgba(0,217,163,0.07); border-color: var(--accent); }
+
+  .last-updated {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 20px 12px; }
+    .header { flex-direction: column; align-items: flex-start; }
+    .header-right { align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="brand">ELOOMA<span class="free-badge">free</span></span>
+    <span class="brand-sub">Stock Dashboard</span>
+  </div>
+  <div class="header-right">
+    <span class="created-by">Created by</span>
+    <span class="created-name">Elooma</span>
+  </div>
+</div>
+
+<div class="last-updated" id="lastUpdated">—</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="drag-th"></th>
+        <th>Symbol</th>
+        <th>Price</th>
+        <th>Change</th>
+        <th>52W High / Low</th>
+        <th>Volume</th>
+        <th>Mkt Cap</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody id="stockTable"></tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <span>Data via Yahoo Finance &mdash; free, no API key required. For informational use only.</span>
+  <button class="refresh-all-btn" onclick="refreshAll()">&#8635; Refresh All</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+const DEFAULT_SYMBOLS = ['RKLB', '', '', '', '', '', '', ''];
+const COLS = ['price','change','range52','volume','mktcap','updated'];
+
+// Yahoo Finance proxy via allorigins to avoid CORS
+async function fetchYahoo(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=true`;
+  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxy);
+  const json = await res.json();
+  const data = JSON.parse(json.contents);
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error('No data');
+  const meta = result.meta;
+  const price = meta.regularMarketPrice;
+  const prev  = meta.previousClose || meta.chartPreviousClose;
+  const chg   = price - prev;
+  const pct   = prev ? (chg / prev) * 100 : 0;
+  const high52 = meta.fiftyTwoWeekHigh;
+  const low52  = meta.fiftyTwoWeekLow;
+  const volume = meta.regularMarketVolume;
+  const mktcap = meta.marketCap;
+  const name   = meta.longName || meta.shortName || symbol;
+  const exch   = meta.exchangeName || '';
+  const state  = meta.marketState || '';
+  return { price, prev, chg, pct, high52, low52, volume, mktcap, name, exch, state };
+}
+
+function fmtPrice(n) {
+  if (n == null) return '—';
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtLarge(n) {
+  if (n == null || n === 0) return '—';
+  if (n >= 1e12) return '$' + (n / 1e12).toFixed(2) + 'T';
+  if (n >= 1e9)  return '$' + (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6)  return '$' + (n / 1e6).toFixed(2) + 'M';
+  return '$' + n.toLocaleString();
+}
+
+function fmtVol(n) {
+  if (n == null || n === 0) return '—';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+  return n.toString();
+}
+
+function marketStateLabel(state) {
+  if (!state) return '';
+  const s = state.toLowerCase();
+  if (s === 'regular') return '<span class="mkt-status status-open">open</span>';
+  if (s === 'pre')     return '<span class="mkt-status status-pre">pre</span>';
+  if (s === 'post')    return '<span class="mkt-status status-pre">after</span>';
+  return '<span class="mkt-status status-closed">closed</span>';
+}
+
+let rowCounter = 0;
+
+function makeRow(symbol) {
+  const uid = rowCounter++;
+  const tr = document.createElement('tr');
+  tr.dataset.uid = uid;
+  tr.dataset.symbol = symbol || '';
+
+  const tdDrag = document.createElement('td');
+  tdDrag.className = 'drag-cell';
+  tdDrag.innerHTML = `<div class="drag-icon"><span></span><span></span><span></span></div>`;
+  tr.appendChild(tdDrag);
+
+  const tdSymbol = document.createElement('td');
+  const symCell = document.createElement('div');
+  symCell.className = 'symbol-cell';
+  const symWrap = document.createElement('div');
+  symWrap.className = 'symbol-wrap';
+
+  const inp = document.createElement('input');
+  inp.className = 'symbol-input';
+  inp.type = 'text';
+  inp.value = symbol || '';
+  inp.placeholder = 'Ticker…';
+  inp.maxLength = 8;
+
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const val = inp.value.trim().toUpperCase();
+      inp.value = val;
+      tr.dataset.symbol = val;
+      inp.blur();
+      if (val) fetchRow(uid);
+    }
+  });
+
+  inp.addEventListener('blur', () => {
+    const val = inp.value.trim().toUpperCase();
+    inp.value = val;
+    if (val && val !== tr.dataset.symbol) {
+      tr.dataset.symbol = val;
+      fetchRow(uid);
+    } else {
+      tr.dataset.symbol = val;
+    }
+  });
+
+  const hint = document.createElement('span');
+  hint.className = 'fetch-hint';
+  hint.textContent = 'enter ↵ or click away';
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'company-name';
+  nameEl.id = `cname-${uid}`;
+
+  symWrap.appendChild(inp);
+  symWrap.appendChild(hint);
+  symWrap.appendChild(nameEl);
+  symCell.appendChild(symWrap);
+  tdSymbol.appendChild(symCell);
+  tr.appendChild(tdSymbol);
+
+  COLS.forEach(col => {
+    const td = document.createElement('td');
+    td.className = 'data-cell empty';
+    td.id = `${col}-${uid}`;
+    td.textContent = '—';
+    tr.appendChild(td);
+  });
+
+  return tr;
+}
+
+function buildTable() {
+  const tbody = document.getElementById('stockTable');
+  tbody.innerHTML = '';
+  DEFAULT_SYMBOLS.forEach(sym => tbody.appendChild(makeRow(sym)));
+  Sortable.create(tbody, {
+    handle: '.drag-cell',
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+  });
+}
+
+function setLoading(uid) {
+  COLS.forEach(col => {
+    const td = document.getElementById(`${col}-${uid}`);
+    if (td) { td.innerHTML = '<span class="skeleton"></span>'; td.className = 'data-cell'; }
+  });
+}
+
+function setError(uid, msg) {
+  COLS.forEach((col, i) => {
+    const td = document.getElementById(`${col}-${uid}`);
+    if (td) {
+      td.textContent = i === 0 ? msg : '—';
+      td.className = i === 0 ? 'data-cell error-cell' : 'data-cell empty';
+    }
+  });
+}
+
+async function fetchRow(uid) {
+  const row = document.querySelector(`tr[data-uid="${uid}"]`);
+  if (!row) return;
+  const symbol = row.dataset.symbol.trim().toUpperCase();
+  if (!symbol) return;
+
+  setLoading(uid);
+
+  try {
+    const d = await fetchYahoo(symbol);
+
+    const priceEl = document.getElementById(`price-${uid}`);
+    priceEl.innerHTML = `<span class="live-dot"></span>${fmtPrice(d.price)}${marketStateLabel(d.state)}`;
+    priceEl.className = 'data-cell price';
+
+    const chgEl = document.getElementById(`change-${uid}`);
+    const sign = d.chg >= 0 ? '+' : '';
+    chgEl.textContent = `${sign}${d.chg.toFixed(2)} (${sign}${d.pct.toFixed(2)}%)`;
+    chgEl.className = `data-cell ${d.chg >= 0 ? 'change-up' : 'change-down'}`;
+
+    const rangeEl = document.getElementById(`range52-${uid}`);
+    rangeEl.textContent = `${fmtPrice(d.high52)} / ${fmtPrice(d.low52)}`;
+    rangeEl.className = 'data-cell';
+
+    const volEl = document.getElementById(`volume-${uid}`);
+    volEl.textContent = fmtVol(d.volume);
+    volEl.className = 'data-cell';
+
+    const capEl = document.getElementById(`mktcap-${uid}`);
+    capEl.textContent = fmtLarge(d.mktcap);
+    capEl.className = 'data-cell';
+
+    const updEl = document.getElementById(`updated-${uid}`);
+    const now = new Date();
+    updEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    updEl.className = 'data-cell empty';
+
+    const nameEl = document.getElementById(`cname-${uid}`);
+    if (nameEl && d.name) nameEl.textContent = d.name;
+
+    document.getElementById('lastUpdated').textContent =
+      `Last refreshed: ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+
+  } catch (err) {
+    setError(uid, 'fetch failed');
+    console.error(symbol, err);
+  }
+}
+
+function refreshAll() {
+  const rows = document.querySelectorAll('#stockTable tr');
+  let delay = 0;
+  rows.forEach(row => {
+    if (row.dataset.symbol) {
+      const uid = parseInt(row.dataset.uid);
+      setTimeout(() => fetchRow(uid), delay);
+      delay += 300;
+    }
+  });
+}
+
+buildTable();
+
+// Auto-load RKLB on page load
+window.addEventListener('load', () => {
+  const firstRow = document.querySelector('#stockTable tr');
+  if (firstRow && firstRow.dataset.symbol === 'RKLB') {
+    fetchRow(parseInt(firstRow.dataset.uid));
+  }
+});
+</script>
+</body>
+</html>
