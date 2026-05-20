@@ -114,6 +114,8 @@
         <th>Price</th>
         <th>Change</th>
         <th>52W High / Low</th>
+        <th>Annual Rev</th>
+        <th>P/E</th>
         <th>Open</th>
         <th>Prev Close</th>
         <th>Updated</th>
@@ -131,7 +133,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
 const DEFAULT_SYMBOLS = ['RKLB', '', '', '', '', '', '', ''];
-const COLS = ['price','change','range52','open','prevclose','updated'];
+const COLS = ['price','change','range52','revenue','pe','open','prevclose','updated'];
 
 let rowCounter = 0;
 
@@ -162,12 +164,23 @@ async function fetchFinnhub(symbol) {
     prevClose: q.pc,
     high52:    metrics['52WeekHigh'] || null,
     low52:     metrics['52WeekLow']  || null,
+    revenue:   metrics['revenuePerShareTTM'] || null,
+    revTotal:  metrics['revenueTTM'] || null,
+    pe:        metrics['peBasicExclExtraTTM'] || metrics['peNormalizedAnnual'] || null,
   };
 }
 
 function fmtPrice(n) {
   if (n == null || n === 0) return '—';
   return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtRevenue(n) {
+  if (n == null || n === 0) return '—';
+  if (n >= 1e12) return '$' + (n / 1e12).toFixed(2) + 'T';
+  if (n >= 1e9)  return '$' + (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6)  return '$' + (n / 1e6).toFixed(2) + 'M';
+  return '$' + n.toLocaleString();
 }
 
 function makeRow(symbol) {
@@ -290,6 +303,14 @@ async function fetchRow(uid) {
     const rangeEl = document.getElementById(`range52-${uid}`);
     rangeEl.textContent = d.high52 ? `${fmtPrice(d.high52)} / ${fmtPrice(d.low52)}` : `${fmtPrice(d.high)} / ${fmtPrice(d.low)}`;
     rangeEl.className = 'data-cell';
+
+    const revEl = document.getElementById(`revenue-${uid}`);
+    revEl.textContent = fmtRevenue(d.revTotal);
+    revEl.className = 'data-cell';
+
+    const peEl = document.getElementById(`pe-${uid}`);
+    peEl.textContent = d.pe ? Number(d.pe).toFixed(1) + 'x' : '—';
+    peEl.className = 'data-cell';
 
     document.getElementById(`open-${uid}`).textContent = fmtPrice(d.open);
     document.getElementById(`open-${uid}`).className = 'data-cell';
